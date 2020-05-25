@@ -6,7 +6,8 @@ from whynot.simulators.responsive_credit.simulator import (
     dynamics,
     Intervention,
     simulate,
-    strategic_logistic_loss,
+    squared_loss,
+    get_visible_feature_projection,
     State,
 )
 

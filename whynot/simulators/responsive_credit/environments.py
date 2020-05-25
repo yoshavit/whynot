@@ -10,6 +10,7 @@ from whynot.simulators.responsive_credit import (
     Intervention,
     simulate,
     squared_loss,
+    get_visible_feature_projection,
     State,
 )
 
@@ -25,8 +26,16 @@ def compute_intervention(action, time):
     """Return intervention that changes the classifier parameters to action."""
     return Intervention(time=time, theta=action)
 
-def compute_observation(state):
 
+def compute_observation(state, config):
+    """Compute the observation based on which features are visible."""
+    features = state.features
+    visible_projection = get_visible_feature_projection(config)
+
+    # mask away the invisible features
+    visible_features = features @ visible_projection
+
+    return State(visible_features, state.labels)
 
 
 def credit_action_space(initial_state):
@@ -47,6 +56,8 @@ def credit_observation_space(initial_state):
     """
     return spaces.Dict(
         {
+            # Note that the observation space includes the invisible
+            # features. They are all simply zeros.
             "features": spaces.Box(
                 low=-np.inf,
                 high=np.inf,
@@ -93,12 +104,13 @@ def build_responsive_credit_env(config=None, initial_state=None):
         timestep=1,
         intervention_fn=compute_intervention,
         reward_fn=compute_reward,
+        observation_fn=compute_observation,
     )
 
 
 register(
-    id="Credit-v0",
-    entry_point=build_credit_env,
+    id="ResponsiveCredit-v0",
+    entry_point=build_responsive_credit_env,
     max_episode_steps=100,
     reward_threshold=0,
 )

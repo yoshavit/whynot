@@ -55,16 +55,15 @@ def create_true_outcome_theta():
 
     # let the linear model be the parameters of that classifier 
     # WITHOUT the sigmoid final layer
-    true_theta = lr.coef_
-    assert true_theta.shape == (1, features.shape[1])
+    true_theta = lr.coef_.reshape(features.shape[1], 1)
     return true_theta
 
 
-def get_visible_feature_projector(config, x):
+def get_visible_feature_projection(config):
     """Create matrix that masks away invisible features
     """
     vf_mask = np.zeros(11)
-    vf_mask[config.visible_features] = 1
+    vf_mask[config.visible_feature_inds] = 1
     return np.eye(vf_mask)
     
 
@@ -98,10 +97,10 @@ def create_pca_action_matrix(d=4):
     pca = sklearn.decomposition.PCA(n_components=d)
     pca.fit(features_masked)
 
-    action_matrix = pca.explained_variance_
+    action_matrix = pca.explained_variance_.T
 
     # just to double-check that the unchangeable directions are zeroed
-    action_matrix = action_matrix @ cf_mask
+    action_matrix = cf_mask @ action_matrix
     assert action_matrix.shape == (features.shape[1], d)
 
     return action_matrix
@@ -122,7 +121,7 @@ class Config(BaseConfig):
     # Dynamics parameters
 
     # Features changeable by the agents
-    changeable_features: list = get_changeable_feature_inds()
+    changeable_feature_inds: list = get_changeable_feature_inds()
 
     #: Model how much the agent adapt her features in response to a classifier
     epsilon: float = 0.1
@@ -147,7 +146,7 @@ class Config(BaseConfig):
     action_matrix: np.ndarray = create_pca_action_matrix()
 
     # The indices of the features visible to the decision-maker
-    visible_features: list = list(range(11))
+    visible_feature_inds: list = list(range(11))
 
     # Simulator book-keeping
     #: Start time of the simulator
@@ -194,7 +193,7 @@ def squared_loss(config, features, labels, theta):
     config = config.update(Intervention(theta=theta))
 
     # compute squared loss
-    preds = features @ config.theta
+    preds = (features @ config.theta).flatten()
     loss = (preds - labels) ** 2
     return loss
 
@@ -206,10 +205,10 @@ def agent_model(features, config):
     strategic_features = np.copy(features)
 
     # the actions resulting from quadratic cost
-    actions = config.action_matrix.T @ config.theta.T
+    actions = config.action_matrix.T @ config.theta
 
     # convert those action weights to feature effects, and add to original features
-    strategic_features += config.action_matrix @ actions
+    strategic_features += (config.action_matrix @ actions).flatten()
     return strategic_features
 
 
@@ -247,7 +246,7 @@ def dynamics(state, time, config, intervention=None):
 
     # Update features in response to classifier. Labels are fixed.
     strategic_features = agent_model(features, config)
-    strategic_labels = config.true_theta @ strategic_features
+    strategic_labels = (strategic_features @ config.true_theta).flatten()
     return strategic_features, strategic_labels
 
 
