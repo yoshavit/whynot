@@ -69,6 +69,7 @@ class ODEEnvBuilder(Env):
 
         self.intervention_fn = intervention_fn
         self.reward_fn = reward_fn
+        self.observation_fn = observation_fn
 
         self.seed()
 
@@ -117,8 +118,7 @@ class ODEEnvBuilder(Env):
     def render(self, mode="human"):
         """Render the environment, unused."""
 
-    @staticmethod
-    def _get_observation(state):
+    def _get_observation(self, state):
         """Convert a state to a numpy array observation.
 
         By default, returns the fully observed state in order listed in the
@@ -133,7 +133,16 @@ class ODEEnvBuilder(Env):
             A numpy array of shape [1, obs_dim].
 
         """
-        return state.values()
+        if self.observation_fn is None:
+            return state.values()
+
+        obs_args = self._get_args(self.observation_fn)
+        kwargs = {}
+        if "config" in obs_args:
+            kwargs["config"] = self.config
+        if "time" in obs_args:
+            kwargs["time"] = self.time
+        return self.observation_fn(state=state, **kwargs)
 
     @staticmethod
     def _get_args(func):
